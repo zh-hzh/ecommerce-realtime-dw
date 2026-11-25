@@ -22,12 +22,13 @@
 --      "哪天发现的"为准（docs/06 4.2）。
 --   6. sink.label-prefix 两个 sink 各不相同，且每次重新提交都要换版本号：
 --      Doris Stream Load label 全局唯一（docs/08 E19）。
---   7. 并行度 6：ods_traffic 是 6 分区（docs/04 4.1），与槽位数刚好匹配。
+--   7. 并行度 3：槽位预算 J1 4 + J2 3 + J3 3 + J4 3 + J5 3 = 16（docs/08 D25）。
+--      ods_traffic 有 6 个分区，3 个消费者各吃 2 个分区，吞吐不受影响。
 -- =============================================================================
 
 SET 'pipeline.name' = 'J4-dwd-traffic';
 SET 'execution.checkpointing.interval' = '10s';
-SET 'parallelism.default' = '6';
+SET 'parallelism.default' = '3';
 SET 'table.dml-sync' = 'false';
 
 -- ============================================== 源：ods_traffic（合法分支）
@@ -89,7 +90,7 @@ CREATE TABLE dwd_traffic_sink (
   'table.identifier' = 'dw.dwd_traffic_detail',
   'username' = 'root',
   'password' = '',
-  'sink.label-prefix' = 'j4_traffic_v1',
+  'sink.label-prefix' = 'j4_traffic_v2',
   'sink.enable-2pc' = 'true',
   'sink.properties.format' = 'json',
   'sink.properties.read_json_by_line' = 'true',
@@ -112,7 +113,7 @@ CREATE TABLE dwd_dirty_sink (
   'table.identifier' = 'dw.dwd_dirty_record',
   'username' = 'root',
   'password' = '',
-  'sink.label-prefix' = 'j4_dirty_v1',
+  'sink.label-prefix' = 'j4_dirty_v2',
   'sink.enable-2pc' = 'true',
   'sink.properties.format' = 'json',
   'sink.properties.read_json_by_line' = 'true',
