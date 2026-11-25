@@ -10,10 +10,14 @@
 --      部分列更新要求 key 列齐全，而支付/退款事件里没有 order 的 create_time，
 --      拿不到 dt。所以 dt 只能是普通列，不能进 key，也就不能做 RANGE 分区。
 --      （历史：E15 记录过"分区列必须是 key 列"，这是同一约束的另一面。）
---   3. function_column.sequence_col = update_time：同一组列的多次写入按 update_time
---      取大者生效；三条流写的列互不重叠，跨流不需要比较先后。
+--   3. 不设 function_column.sequence_col：sequence 是表级属性，三条流各写各的列
+--      也会按 update_time 跨流比大小；Flink 三个 Doris sink 在同一个 checkpoint
+--      内的提交顺序不保证，支付/退款的部分列更新一旦晚于订单的状态更新提交，
+--      就会因为 sequence 更旧被整行丢弃（实测 149 笔支付丢 113 笔，见 docs/08 E31）。
+--      三组列互不重叠，同一条流由同一个 sink 顺序提交，靠 Unique Key + MoW
+--      的"后写覆盖"就能合并成一行，不需要 sequence。
 --   4. MoW（merge-on-write）是部分列更新的前提。
---   5. 已有旧结构（key 为 order_id+dt、按 dt 分区）时需要 DROP 重建：
+--   5. 已有旧结构（key 为 order_id+dt、按 dt 分区，或带 sequence_col）时需要 DROP 重建：
 --      DROP TABLE IF EXISTS dw.dwd_trade_order_detail;
 -- =============================================================================
 
@@ -41,11 +45,10 @@ CREATE TABLE IF NOT EXISTS dw.dwd_trade_order_detail (
   pay_status    TINYINT              COMMENT '支付状态',
   refund_status TINYINT              COMMENT '退款状态',
   is_deleted    TINYINT              COMMENT '逻辑删除 0否 1是',
-  update_time   DATETIME(3)          COMMENT '源端更新时间，sequence 列'
+  update_time   DATETIME(3)          COMMENT '源端更新时间'
 ) UNIQUE KEY(order_id)
 DISTRIBUTED BY HASH(order_id) BUCKETS 8
 PROPERTIES (
   'replication_num' = '1',
-  'enable_unique_key_merge_on_write' = 'true',
-  'function_column.sequence_col' = 'update_time'
+  'enable_unique_key_merge_on_write' = 'true'
 );

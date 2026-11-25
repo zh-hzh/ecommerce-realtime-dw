@@ -20,8 +20,12 @@
 --   3. 退款只写"成功"的流水（refund_status=1）。0申请 / 2处理中 / 3拒绝 不改
 --      refund_amount，否则会把没退成的钱算进退款额。源端一单一退款（refund_id=order_id），
 --      所以后写的退款覆盖先写的即可，不需要 SUM。
---   4. 幂等靠 Doris 侧：Unique Key(order_id) + sequence_col=update_time；
---      同组列的重复/乱序写入按 update_time 取大者。三组列互不重叠，跨组不比先后。
+--   4. 幂等靠 Doris 侧：Unique Key(order_id) + MoW 后写覆盖。
+--      表上**不能**加 function_column.sequence_col：sequence 是表级属性，
+--      三个 sink 在同一 checkpoint 内的提交顺序不保证，支付/退款的部分列更新
+--      晚于订单状态更新提交时会因 sequence 更旧被整行丢弃（docs/08 E31）。
+--      三组列互不重叠，同一条流的多次写入由同一个 sink 按 checkpoint 顺序提交，
+--      后写覆盖即正确结果。
 --   5. scan.startup.mode=latest-offset：库里历史单不走实时链路；group offset 续接。
 --   6. sink.label-prefix 三个 sink 必须各不相同，且每次重新提交都要换：
 --      Doris 的 Stream Load label 全局唯一，前缀+checkpoint 编号重复会报
