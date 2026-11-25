@@ -5,7 +5,7 @@
 #   2) 插入测试单（order_id 固定 900000001，超出历史造数范围）
 #   3) 等 8 秒后看 offset 是否增长，并从头消费出这条消息（op=c）
 #   4) 删除测试单，再消费出 op=d 的删除事件
-# 对应文档：docs/04-架构设计.md 4.2、docs/08-问题索引.md 第七节
+# 对应文档：docs/04-架构设计.md 4.2、docs/08-问题索引.md 第六节
 # 执行：bash scripts/smoke_j1.sh <mysql_root_password>
 # 输出：只打印 offset 与消息体；测试单跑完即删，不在库里留下脏数据
 # 依赖：J1 四个作业处于 RUNNING、Kafka 与 MySQL 可用

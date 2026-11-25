@@ -12,7 +12,7 @@
 #      同时确认支付字段仍在
 #   6) 软删（is_deleted=1），轮询 Doris 等到 is_deleted=1（验证逻辑删除同步）
 #   7) 清理：删 Doris 测试行 + 删 MySQL 测试数据 + 确认作业仍在 RUNNING
-# 对应文档：docs/04-架构设计.md 4.2、docs/08-问题索引.md 第七节
+# 对应文档：docs/04-架构设计.md 4.2、docs/08-问题索引.md 第六节
 # 执行：bash scripts/smoke_j2.sh <mysql_root_password>
 # 依赖：J1、J2 作业 RUNNING；Doris 已建表并装载维表
 #       （scripts/init_doris.sh + scripts/load_dim_shop.sh）
