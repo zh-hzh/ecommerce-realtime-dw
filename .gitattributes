@@ -1,0 +1,2 @@
+# 统一按 LF 存储：脚本在 WSL 里执行，CRLF 会导致 "bad interpreter" / "$'\r': command not found"
+* text=auto eol=lf

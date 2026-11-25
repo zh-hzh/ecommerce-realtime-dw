@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-11-24T21:58:40",
+  "seed": 20261124,
+  "users": {
+    "min": 1,
+    "max": 100000,
+    "count": 100000
+  },
+  "products": {
+    "min": 1,
+    "max": 50000,
+    "count": 50000
+  },
+  "shops": {
+    "min": 1,
+    "max": 2000,
+    "count": 2000
+  },
+  "offline_product_count": 962,
+  "note": "维表缺失注入：offline_product_count 个商品 status=0，订单仍会引用"
+}

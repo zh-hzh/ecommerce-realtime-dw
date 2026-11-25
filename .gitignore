@@ -1,0 +1,16 @@
+# 忽略本地口令文件：密码只放本地，不进仓库
+.env
+*.env
+
+# 忽略日志与临时产物
+*.log
+*.tmp
+
+# 忽略 Python 缓存
+__pycache__/
+*.pyc
+
+# 忽略编辑器目录
+.idea/
+.vscode/
+.DS_Store
