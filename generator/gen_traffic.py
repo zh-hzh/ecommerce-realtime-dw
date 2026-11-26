@@ -18,7 +18,7 @@
         重复      5%   同一 event_id 原样发两次（Q08 靶子，J4 按主键去重）
         迟到      1%   event_time 比发送时间早 5~30 分钟，事件本身合法（只影响实时性）
         非法枚举  0.1% event_type 写一个不存在的值（Q05 靶子）
-        越界时间  0.1% event_time 超未来 +5 分钟或早于 30 天（Q04 靶子）
+        越界时间  0.1% event_time 早于 30 天（Q04 靶子；只往历史偏，不往未来——未来会把水印推飞，见 E38）
         金额异常  不适用（埋点没有金额字段）
     - 异常互斥：一条事件只注入一种异常，避免脏数据里原因说不清；重复只对合法事件做
     - 会话：同一用户 30 分钟内有新事件就复用 session_id，超过 30 分钟切新会话
@@ -93,11 +93,10 @@ def build_event(rng, pool, seq, run_prefix, sessions, counters):
         event_type = rng.choice(BAD_EVENT_TYPES)
         anomaly = "bad_type"
     elif rng.random() < counters["rate_bad_time"]:
-        # 一半未来、一半超历史；未来 5~60 分钟，历史 31~45 天（仍在 -90 天动态分区内）
-        if rng.random() < 0.5:
-            event_time = now_ms + rng.randint(5, 60) * 60 * 1000
-        else:
-            event_time = now_ms - rng.randint(31, 45) * 24 * 3600 * 1000
+        # 只往历史越界（31~45 天前，仍在 -90 天动态分区内）。
+        # 不要往未来偏：未来时间的事件会被 WHERE 过滤掉，但水印定义在源表上、先于过滤生效，
+        # 水印一旦被推到未来，之后所有正常事件都变成"迟到"，分钟窗口直接停摆（E38）
+        event_time = now_ms - rng.randint(31, 45) * 24 * 3600 * 1000
         anomaly = "bad_time"
     elif rng.random() < counters["rate_late"]:
         event_time = now_ms - rng.randint(5, 1800) * 1000
