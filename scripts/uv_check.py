@@ -37,6 +37,9 @@ MIN_MINUTES = int(os.getenv("UV_MIN_MINUTES", "1000"))       # 一天 1440 分�
 def parse_args():
     p = argparse.ArgumentParser(description="UV 对账（DWS 位图 vs DWD 明细）")
     p.add_argument("--dt", default=(date.today() - timedelta(days=1)).isoformat())
+    p.add_argument("--since", default=None,
+                   help="只比对该时刻之后的数据（yyyy-MM-dd HH:MM:SS）。"
+                        "用于 J5 中途启动时做同起点比对，否则实时侧覆盖不足必然 FAIL")
     p.add_argument("--host", default=os.getenv("DORIS_HOST", "127.0.0.1"))
     p.add_argument("--port", default=int(os.getenv("DORIS_PORT", "9030")), type=int)
     p.add_argument("--user", default="root")
@@ -51,11 +54,21 @@ def main():
                            password=args.password, database="dw",
                            autocommit=True, connect_timeout=10)
     with conn.cursor() as cur:
-        cur.execute("SELECT BITMAP_UNION_COUNT(uv) FROM dw.dws_user_1d WHERE dt=%s", (dt,))
+        if args.since:
+            # dws_user_1d 是日级 bitmap，没有时间列；限定起点时改用分钟表的 uv bitmap
+            cur.execute("SELECT BITMAP_UNION_COUNT(uv) FROM dw.dws_traffic_1min "
+                        "WHERE dt=%s AND stat_minute >= %s", (dt, args.since))
+        else:
+            cur.execute("SELECT BITMAP_UNION_COUNT(uv) FROM dw.dws_user_1d WHERE dt=%s", (dt,))
         realtime_uv = int(cur.fetchone()[0] or 0)
 
-        cur.execute("SELECT COUNT(DISTINCT user_id) FROM dw.dwd_traffic_detail "
-                    "WHERE dt=%s AND event_type='page_view'", (dt,))
+        if args.since:
+            cur.execute("SELECT COUNT(DISTINCT user_id) FROM dw.dwd_traffic_detail "
+                        "WHERE dt=%s AND event_type='page_view' AND event_time >= %s",
+                        (dt, args.since))
+        else:
+            cur.execute("SELECT COUNT(DISTINCT user_id) FROM dw.dwd_traffic_detail "
+                        "WHERE dt=%s AND event_type='page_view'", (dt,))
         detail_uv = int(cur.fetchone()[0] or 0)
 
         cur.execute("SELECT COUNT(*) FROM dw.dws_traffic_1min WHERE dt=%s", (dt,))
