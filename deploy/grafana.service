@@ -1,0 +1,22 @@
+[Unit]
+Description=Grafana for ecommerce-realtime-dw dashboards
+Documentation=file:///mnt/d/projects/ecommerce-realtime-dw/docs/07-%E6%93%8D%E4%BD%9C%E6%AD%A5%E9%AA%A4.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hzh
+Group=hzh
+WorkingDirectory=/home/hzh/apps/grafana
+ExecStart=/home/hzh/apps/grafana/bin/grafana server --config /mnt/d/projects/ecommerce-realtime-dw/grafana/grafana.ini --homepath /home/hzh/apps/grafana
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+# 数据目录在安装目录下，不落仓库
+Environment=GF_PATHS_DATA=/home/hzh/apps/grafana/data
+Environment=GF_PATHS_LOGS=/home/hzh/apps/grafana/log
+Environment=GF_PATHS_PLUGINS=/home/hzh/apps/grafana/data/plugins
+
+[Install]
+WantedBy=multi-user.target
