@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 用途：在 Doris 建 dw 库、J2 目标表 dwd_trade_order_detail、店铺/商品维表、
 #       J3 的三张 DWS 聚合表、J4 的埋点明细表与脏数据表、J5 的流量 DWS 表、
-#       J6 的三张 ADS 结果表、离线对账差异表 ads_reconcile_diff
+#       J6 的三张 ADS 结果表、离线对账差异表 ads_reconcile_diff、延迟探针结果表 latency_probe
 # 对应文档：docs/03-数据模型.md 5.1 / 6.2 / 七节、docs/04-架构设计.md 4.2
 # 执行：bash scripts/init_doris.sh
 # 依赖：Doris FE 9030 可连；本机 root 免密（见 docs/01 环境约定）
@@ -18,6 +18,7 @@ mysql -h127.0.0.1 -P9030 -uroot < sql/06_init_doris_traffic.sql
 mysql -h127.0.0.1 -P9030 -uroot < sql/07_init_doris_traffic_dws.sql
 mysql -h127.0.0.1 -P9030 -uroot < sql/08_init_doris_ads.sql
 mysql -h127.0.0.1 -P9030 -uroot < sql/10_init_doris_reconcile.sql
+mysql -h127.0.0.1 -P9030 -uroot < sql/11_init_doris_probe.sql
 
 echo "--- 表结构 ---"
 mysql -h127.0.0.1 -P9030 -uroot -e "SHOW CREATE TABLE dw.dwd_trade_order_detail\G" | head -30

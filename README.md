@@ -45,7 +45,13 @@ bash scripts/run_gen_traffic.sh --qps 200
 # 4. 刷新 ADS
 bash scripts/run_j6.sh --loop 60
 
-# 5. 离线 T+1 + 对账（每天，紧跟执行）
+# 5. 看板（一次性安装后，按需启停）
+bash scripts/grafana_start.sh start     # http://localhost:3000  admin/admin
+
+# 6. 端到端延迟（测量窗口：10 分钟 60 个样本，测完自动停）
+MYSQL_PASSWORD='MySQL口令' bash scripts/latency_probe.sh
+
+# 7. 离线 T+1 + 对账（每天，紧跟执行）
 export MYSQL_PASSWORD='MySQL口令'
 bash scripts/run_offline_t1.sh --dt 2026-11-25
 bash scripts/run_reconcile.sh  --dt 2026-11-25
@@ -58,7 +64,8 @@ bash scripts/run_reconcile.sh  --dt 2026-11-25
 | `generator/` | 造数：维表、30 天历史、埋点、实时交易状态机 |
 | `flink/sql/` | J1~J5 实时作业（Flink SQL） |
 | `spark/` | `offline_t1.py` 离线跑批、`reconcile.py` 对账 |
-| `sql/` | 01 MySQL、02~08/10 Doris、09 Hive、`j6_ads_refresh.sql` |
+| `sql/` | 01 MySQL、02~08/10/11 Doris、09 Hive、`j6_ads_refresh.sql` |
+| `grafana/` | 看板 provisioning：数据源、看板 provider、看板 JSON、`grafana.ini` |
 | `scripts/` | 提交、冒烟、维表装载、环境与排障脚本 |
 | `docs/` | 01~08 文档 |
 
@@ -73,7 +80,7 @@ bash scripts/run_reconcile.sh  --dt 2026-11-25
 
 ## 当前状态
 
-- 已跑通：4 个生成器、J1~J6、Doris 14 张表、Hive 10 张表、离线 T+1、5 个交易指标对账（正反向验证均通过）
-- 未完成：2000 QPS 压测、端到端延迟实测、看板、DolphinScheduler 编排、批巡检 C01~C05
+- 已跑通：4 个生成器、J1~J6、Doris 15 张表、Hive 10 张表、离线 T+1、5 个交易指标对账（正反向验证均通过）、Grafana 看板（5 个面板）、延迟探针脚本（小样验证通过）
+- 未完成：2000 QPS 压测、端到端延迟实测（脚本已就绪，需先启 J1/J2）、DolphinScheduler 编排、批巡检 C01~C05
 
-> 单机环境（WSL2 + 本机，16 GB 量级），用于学习与演示，不是生产部署方案。
+> 单机环境（WSL2 + 本机，23 GB 内存），用于学习与演示，不是生产部署方案。Grafana 用 nohup 常驻，WSL 重启后要手动 `bash scripts/grafana_start.sh start`。

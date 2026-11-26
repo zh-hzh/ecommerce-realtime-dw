@@ -1,0 +1,26 @@
+# 用途：Grafana 数据源 provisioning —— 用 MySQL 协议连 Doris FE
+# 对应文档：docs/07-操作步骤.md 阶段 8
+# 说明：
+#   1. Doris FE 的 9030 端口兼容 MySQL 协议，所以直接用 Grafana 内置的 MySQL 数据源，
+#      不需要额外装插件（这也是选 Grafana 而不是 Superset 的一个原因）。
+#   2. 库固定 dw；本机 root 免密（与 scripts/init_doris.sh 一致）。
+#   3. 只读查询，不要在这里执行 DDL/DML。
+apiVersion: 1
+
+datasources:
+  - name: Doris
+    uid: doris
+    type: mysql
+    access: proxy
+    url: 127.0.0.1:9030
+    database: dw
+    user: root
+    isDefault: true
+    editable: true
+    jsonData:
+      maxOpenConns: 20
+      maxIdleConns: 5
+      connMaxLifetime: 14400
+      timezone: Asia/Shanghai
+    secureJsonData:
+      password: ""

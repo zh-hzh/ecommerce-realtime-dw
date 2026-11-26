@@ -1,0 +1,244 @@
+{
+  "uid": "ecom-rt-dw",
+  "title": "电商实时数仓 · 实时看板",
+  "description": "数据源：Doris(dw)。交易曲线读 DWS 分钟表（Flink 直写），漏斗/TOP N 读 ADS 结果表（J6 刷新），新鲜度读 DWS 最新分钟，延迟读探针结果表。",
+  "tags": ["ecommerce", "realtime", "doris"],
+  "timezone": "Asia/Shanghai",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"] },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "分钟交易曲线：下单 / 支付笔数",
+      "description": "来源 dw.dws_trade_1min，Flink J3 按事件时间直写，不经 ADS。用来判断链路是否在出数、下单与支付是否同频。",
+      "datasource": { "type": "mysql", "uid": "doris" },
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "axisSoftMin": 0
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "支付笔数" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "下单笔数" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "mysql", "uid": "doris" },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT stat_minute AS time,\n       order_cnt AS 下单笔数,\n       pay_cnt   AS 支付笔数\nFROM dw.dws_trade_1min\nWHERE $__timeFilter(stat_minute)\nORDER BY stat_minute"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "数据新鲜度（最新分钟落后当前秒数）",
+      "description": "NOW() 与 dws_trade_1min 最新 stat_minute 的差值。生成器/Flink 停止时会一直变大，属预期：这个面板就是用来暴露“断流”的。绿<60s、黄<300s、红≥300s。",
+      "datasource": { "type": "mysql", "uid": "doris" },
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 300 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "mysql", "uid": "doris" },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT TIMESTAMPDIFF(SECOND, MAX(stat_minute), NOW()) AS 落后秒数\nFROM dw.dws_trade_1min\nWHERE dt >= DATE_SUB(CURDATE(), INTERVAL 3 DAY)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "bargauge",
+      "title": "转化漏斗：浏览 → 加购 → 提交 → 支付（人数）",
+      "description": "来源 dw.ads_conversion_funnel，取最新一天。四个数分别来自埋点日级 bitmap 与交易 DWD 去重：分子分母不是严格包含关系，支付人数可能接近或超过提交人数，只看趋势与量级（docs/03 第 5.5 节）。",
+      "datasource": { "type": "mysql", "uid": "doris" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 100 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "auto",
+        "sizing": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "mysql", "uid": "doris" },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT uv           AS 浏览人数,\n       cart_uv      AS 加购人数,\n       submit_uv    AS 提交人数,\n       pay_user_cnt AS 支付人数\nFROM dw.ads_conversion_funnel\nWHERE dt = (SELECT MAX(dt) FROM dw.ads_conversion_funnel)"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "TOP 10 商品（按支付金额）",
+      "description": "来源 dw.ads_topn_product，J6 每天覆盖写；取最新一天。商品名是下单当时的维表快照，改过名的商品不会回溯。",
+      "datasource": { "type": "mysql", "uid": "doris" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "支付金额" },
+            "properties": [{ "id": "unit", "value": "currencyCNY" }, { "id": "decimals", "value": 2 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "下单金额" },
+            "properties": [{ "id": "unit", "value": "currencyCNY" }, { "id": "decimals", "value": 2 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "排名" },
+            "properties": [{ "id": "custom.width", "value": 70 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "支付笔数" },
+            "properties": [{ "id": "custom.width", "value": 90 }]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false, "reducer": ["sum"], "fields": "" },
+        "sortBy": [{ "displayName": "排名", "desc": false }]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "mysql", "uid": "doris" },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT rank_no      AS 排名,\n       product_name AS 商品,\n       category_name AS 类目,\n       brand        AS 品牌,\n       pay_cnt      AS 支付笔数,\n       order_amt    AS 下单金额,\n       pay_amt      AS 支付金额\nFROM dw.ads_topn_product\nWHERE dt = (SELECT MAX(dt) FROM dw.ads_topn_product)\nORDER BY rank_no"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "端到端延迟 P50 / P99（测量窗口模式）",
+      "description": "来源 dw.latency_probe。探针平时不跑：需要时开 10 分钟、每 10 秒写一条 0.01 元测试单（user_id=999999），测 MySQL 写入 → DWD 可见的端到端延迟，共 60 个样本。无数据代表还没测过。",
+      "datasource": { "type": "mysql", "uid": "doris" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 18 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1000 },
+              { "color": "red", "value": 5000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "mysql", "uid": "doris" },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT PERCENTILE(latency_ms, 0.5) AS 'P50 延迟'\nFROM dw.latency_probe\nWHERE success = 1\n  AND dt >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "mysql", "uid": "doris" },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT PERCENTILE(latency_ms, 0.99) AS 'P99 延迟'\nFROM dw.latency_probe\nWHERE success = 1\n  AND dt >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+        }
+      ]
+    }
+  ]
+}
